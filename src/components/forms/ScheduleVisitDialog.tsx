@@ -87,42 +87,55 @@ export function ScheduleVisitDialog({ onSuccess, triggerLabel = "Schedule Visit"
   }, [open]);
 
   const fetchPets = async () => {
-    const { data, error } = await supabase
-      .from("pets")
-      .select(`
-        id, 
-        name, 
-        species, 
-        owners!inner(first_name, last_name)
-      `)
-      .order("name");
+    try {
+      const { data, error } = await supabase
+        .from("pets")
+        .select(`
+          id, 
+          name, 
+          species, 
+          owners(first_name, last_name)
+        `)
+        .order("name");
 
-    if (data && !error) {
-      const formattedPets = data.map(pet => ({
-        id: pet.id,
-        name: pet.name,
-        species: pet.species,
-        owners: pet.owners as { first_name: string; last_name: string } | null
-      }));
-      setPets(formattedPets);
+      if (error) {
+        console.error("Failed to fetch pets:", error);
+        return;
+      }
+
+      if (data) {
+        const formattedPets = data.map(pet => ({
+          id: pet.id,
+          name: pet.name,
+          species: pet.species,
+          owners: pet.owners as { first_name: string; last_name: string } | null
+        }));
+        setPets(formattedPets);
+      }
+    } catch (e) {
+      console.error("Failed to fetch pets", e);
     }
   };
 
   const fetchVets = async () => {
     try {
-      // Using fetch directly since the types might not be updated yet
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/veterinarians?select=id,first_name,last_name,specialty&order=first_name`,
         {
           headers: {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            Authorization: token ? `Bearer ${token}` : '',
           },
         }
       );
       if (response.ok) {
         const data = await response.json();
         setVets(data as Vet[]);
+      } else {
+        console.error("Failed to fetch vets:", await response.text());
       }
     } catch (e) {
       console.error("Failed to fetch vets", e);
