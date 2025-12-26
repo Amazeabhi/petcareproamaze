@@ -1,93 +1,61 @@
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Stethoscope, 
-  Plus,
   Star,
   Phone,
   Mail,
-  Calendar,
   Clock,
-  Award
+  Award,
+  Loader2
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { AddVetDialog } from "@/components/forms/AddVetDialog";
 
-const veterinarians = [
-  { 
-    id: 1, 
-    name: "Dr. Sarah Johnson",
-    specialty: "General Practice",
-    experience: "12 years",
-    rating: 4.9,
-    reviews: 156,
-    email: "sarah.johnson@happypaws.com",
-    phone: "+1 (555) 111-2222",
-    availability: "Mon-Fri, 9AM-5PM",
-    image: "SJ"
-  },
-  { 
-    id: 2, 
-    name: "Dr. Michael Chen",
-    specialty: "Surgery & Emergency",
-    experience: "15 years",
-    rating: 4.8,
-    reviews: 203,
-    email: "michael.chen@happypaws.com",
-    phone: "+1 (555) 222-3333",
-    availability: "Mon-Sat, 8AM-6PM",
-    image: "MC"
-  },
-  { 
-    id: 3, 
-    name: "Dr. Emma White",
-    specialty: "Dentistry",
-    experience: "8 years",
-    rating: 4.9,
-    reviews: 98,
-    email: "emma.white@happypaws.com",
-    phone: "+1 (555) 333-4444",
-    availability: "Tue-Fri, 10AM-6PM",
-    image: "EW"
-  },
-  { 
-    id: 4, 
-    name: "Dr. James Brown",
-    specialty: "Dermatology",
-    experience: "10 years",
-    rating: 4.7,
-    reviews: 87,
-    email: "james.brown@happypaws.com",
-    phone: "+1 (555) 444-5555",
-    availability: "Mon-Thu, 9AM-4PM",
-    image: "JB"
-  },
-  { 
-    id: 5, 
-    name: "Dr. Lisa Martinez",
-    specialty: "Cardiology",
-    experience: "14 years",
-    rating: 4.9,
-    reviews: 124,
-    email: "lisa.martinez@happypaws.com",
-    phone: "+1 (555) 555-6666",
-    availability: "Mon-Fri, 8AM-5PM",
-    image: "LM"
-  },
-  { 
-    id: 6, 
-    name: "Dr. David Kim",
-    specialty: "Orthopedics",
-    experience: "11 years",
-    rating: 4.8,
-    reviews: 142,
-    email: "david.kim@happypaws.com",
-    phone: "+1 (555) 666-7777",
-    availability: "Wed-Sun, 9AM-5PM",
-    image: "DK"
-  },
-];
+interface Vet {
+  id: string;
+  first_name: string;
+  last_name: string;
+  specialty: string;
+  email: string;
+  phone: string | null;
+  experience_years: number | null;
+  availability: string | null;
+}
 
 const Vets = () => {
+  const [vets, setVets] = useState<Vet[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchVets = async () => {
+    setIsLoading(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/veterinarians?select=*&order=first_name`,
+        {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${session.data.session?.access_token}`,
+          },
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setVets(data as Vet[]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch vets", e);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchVets();
+  }, []);
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -102,83 +70,95 @@ const Vets = () => {
             </h1>
             <p className="text-muted-foreground mt-2">Meet our team of experienced and caring veterinary professionals</p>
           </div>
-          <Button variant="hero">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Veterinarian
-          </Button>
+          <AddVetDialog onSuccess={fetchVets} />
         </div>
 
-        {/* Vets Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {veterinarians.map((vet, index) => (
-            <Card 
-              key={vet.id}
-              hover
-              className="animate-slide-up overflow-hidden"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              {/* Header with gradient */}
-              <div className="h-20 gradient-hero relative">
-                <div className="absolute -bottom-10 left-6">
-                  <div className="w-20 h-20 rounded-2xl bg-card border-4 border-card flex items-center justify-center shadow-soft">
-                    <span className="text-2xl font-bold text-primary">{vet.image}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <CardHeader className="pt-12">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-xl">{vet.name}</CardTitle>
-                    <p className="text-sm text-primary font-medium">{vet.specialty}</p>
-                  </div>
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/10">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="text-sm font-semibold text-yellow-600">{vet.rating}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Award className="w-4 h-4 text-primary" />
-                    <span>{vet.experience}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Star className="w-4 h-4 text-primary" />
-                    <span>{vet.reviews} reviews</span>
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : vets.length === 0 ? (
+          <div className="text-center py-12">
+            <Stethoscope className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No veterinarians found. Add your first veterinarian to get started.</p>
+          </div>
+        ) : (
+          /* Vets Grid */
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {vets.map((vet, index) => (
+              <Card 
+                key={vet.id}
+                hover
+                className="animate-slide-up overflow-hidden"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Header with gradient */}
+                <div className="h-20 gradient-hero relative">
+                  <div className="absolute -bottom-10 left-6">
+                    <div className="w-20 h-20 rounded-2xl bg-card border-4 border-card flex items-center justify-center shadow-soft">
+                      <span className="text-2xl font-bold text-primary">
+                        {vet.first_name[0]}{vet.last_name[0]}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="w-4 h-4" />
-                    <span className="truncate">{vet.email}</span>
+                <CardHeader className="pt-12">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-xl">Dr. {vet.first_name} {vet.last_name}</CardTitle>
+                      <p className="text-sm text-primary font-medium">{vet.specialty}</p>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/10">
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      <span className="text-sm font-semibold text-yellow-600">5.0</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="w-4 h-4" />
-                    <span>{vet.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>{vet.availability}</span>
-                  </div>
-                </div>
+                </CardHeader>
                 
-                <div className="pt-4 border-t border-border/50 flex gap-2">
-                  <Button variant="outline" className="flex-1">
-                    View Profile
-                  </Button>
-                  <Button variant="hero" className="flex-1">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    Book
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    {vet.experience_years && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Award className="w-4 h-4 text-primary" />
+                        <span>{vet.experience_years} years</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4" />
+                      <span className="truncate">{vet.email}</span>
+                    </div>
+                    {vet.phone && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="w-4 h-4" />
+                        <span>{vet.phone}</span>
+                      </div>
+                    )}
+                    {vet.availability && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        <span>{vet.availability}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="pt-4 border-t border-border/50 flex gap-2">
+                    <Button variant="outline" className="flex-1">
+                      View Profile
+                    </Button>
+                    <Button variant="hero" className="flex-1">
+                      Book
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </Layout>
   );
