@@ -1,102 +1,48 @@
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Calendar, 
-  Plus, 
   Clock,
   User,
-  PawPrint,
   Stethoscope,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { ScheduleVisitDialog } from "@/components/forms/ScheduleVisitDialog";
+import { format } from "date-fns";
 
-const visits = [
-  { 
-    id: 1, 
-    pet: "Max",
-    petType: "Dog",
-    owner: "John Smith",
-    vet: "Dr. Sarah Johnson",
-    date: "Dec 26, 2024",
-    time: "10:00 AM",
-    type: "Annual Checkup",
-    status: "Completed",
-    notes: "All vitals normal. Recommended dental cleaning."
-  },
-  { 
-    id: 2, 
-    pet: "Bella",
-    petType: "Dog",
-    owner: "Emily Davis",
-    vet: "Dr. Michael Chen",
-    date: "Dec 26, 2024",
-    time: "11:30 AM",
-    type: "Vaccination",
-    status: "Completed",
-    notes: "Rabies and DHPP vaccines administered."
-  },
-  { 
-    id: 3, 
-    pet: "Charlie",
-    petType: "Dog",
-    owner: "Robert Wilson",
-    vet: "Dr. Sarah Johnson",
-    date: "Dec 26, 2024",
-    time: "2:00 PM",
-    type: "Surgery - Neutering",
-    status: "In Progress",
-    notes: "Pre-surgery prep completed."
-  },
-  { 
-    id: 4, 
-    pet: "Whiskers",
-    petType: "Cat",
-    owner: "John Smith",
-    vet: "Dr. Emma White",
-    date: "Dec 27, 2024",
-    time: "9:00 AM",
-    type: "Dental Cleaning",
-    status: "Scheduled",
-    notes: "Owner requested mild sedation."
-  },
-  { 
-    id: 5, 
-    pet: "Luna",
-    petType: "Cat",
-    owner: "David Miller",
-    vet: "Dr. James Brown",
-    date: "Dec 27, 2024",
-    time: "10:30 AM",
-    type: "General Checkup",
-    status: "Scheduled",
-    notes: "New patient - first visit."
-  },
-  { 
-    id: 6, 
-    pet: "Rocky",
-    petType: "Dog",
-    owner: "David Miller",
-    vet: "Dr. Sarah Johnson",
-    date: "Dec 24, 2024",
-    time: "3:00 PM",
-    type: "Emergency",
-    status: "Cancelled",
-    notes: "Owner cancelled - issue resolved at home."
-  },
-];
+interface Visit {
+  id: string;
+  visit_date: string;
+  reason: string;
+  status: string;
+  notes: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  pets: {
+    name: string;
+    species: string;
+    owners: { first_name: string; last_name: string } | null;
+  } | null;
+  vet_first_name?: string;
+  vet_last_name?: string;
+}
 
 const getStatusInfo = (status: string) => {
-  switch (status) {
-    case "Completed":
+  switch (status.toLowerCase()) {
+    case "completed":
       return { color: "bg-green-500/10 text-green-600 border-green-200", icon: CheckCircle };
-    case "In Progress":
+    case "in progress":
+    case "in_progress":
       return { color: "bg-blue-500/10 text-blue-600 border-blue-200", icon: Clock };
-    case "Scheduled":
+    case "scheduled":
       return { color: "bg-yellow-500/10 text-yellow-600 border-yellow-200", icon: AlertCircle };
-    case "Cancelled":
+    case "cancelled":
       return { color: "bg-red-500/10 text-red-600 border-red-200", icon: XCircle };
     default:
       return { color: "bg-muted text-muted-foreground", icon: AlertCircle };
@@ -104,13 +50,92 @@ const getStatusInfo = (status: string) => {
 };
 
 const getTypeColor = (type: string) => {
-  if (type.includes("Emergency")) return "bg-red-500/10 text-red-600";
-  if (type.includes("Surgery")) return "bg-purple-500/10 text-purple-600";
-  if (type.includes("Vaccination")) return "bg-blue-500/10 text-blue-600";
+  if (type.toLowerCase().includes("emergency")) return "bg-red-500/10 text-red-600";
+  if (type.toLowerCase().includes("surgery")) return "bg-purple-500/10 text-purple-600";
+  if (type.toLowerCase().includes("vaccination")) return "bg-blue-500/10 text-blue-600";
   return "bg-primary/10 text-primary";
 };
 
 const Visits = () => {
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const fetchVisits = async () => {
+    setIsLoading(true);
+    
+    const { data, error } = await supabase
+      .from("visits")
+      .select(`
+        id,
+        visit_date,
+        reason,
+        status,
+        notes,
+        diagnosis,
+        treatment,
+        doctor_id,
+        pets!inner(
+          name,
+          species,
+          owners!inner(first_name, last_name)
+        )
+      `)
+      .order("visit_date", { ascending: false });
+
+    if (data && !error) {
+      // Fetch veterinarian names separately if doctor_id exists
+      const visitsWithVets = await Promise.all(
+        data.map(async (visit: any) => {
+          let vet_first_name = undefined;
+          let vet_last_name = undefined;
+          
+          if (visit.doctor_id) {
+            try {
+              const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/veterinarians?id=eq.${visit.doctor_id}&select=first_name,last_name`,
+                {
+                  headers: {
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                  },
+                }
+              );
+              if (response.ok) {
+                const vetData = await response.json();
+                if (vetData.length > 0) {
+                  vet_first_name = vetData[0].first_name;
+                  vet_last_name = vetData[0].last_name;
+                }
+              }
+            } catch (e) {
+              console.error("Failed to fetch vet", e);
+            }
+          }
+          
+          return {
+            ...visit,
+            pets: visit.pets as Visit["pets"],
+            vet_first_name,
+            vet_last_name,
+          };
+        })
+      );
+      
+      setVisits(visitsWithVets);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchVisits();
+  }, []);
+
+  const filteredVisits = visits.filter(visit => {
+    if (statusFilter === "all") return true;
+    return visit.status.toLowerCase() === statusFilter.toLowerCase();
+  });
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -125,90 +150,129 @@ const Visits = () => {
             </h1>
             <p className="text-muted-foreground mt-2">Track and manage all pet visits and appointments</p>
           </div>
-          <Button variant="hero">
-            <Plus className="w-4 h-4 mr-2" />
-            Schedule Visit
-          </Button>
+          <ScheduleVisitDialog onSuccess={fetchVisits} />
         </div>
 
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          <Button variant="default">All Visits</Button>
-          <Button variant="secondary">Scheduled</Button>
-          <Button variant="secondary">In Progress</Button>
-          <Button variant="secondary">Completed</Button>
-          <Button variant="secondary">Cancelled</Button>
+          <Button 
+            variant={statusFilter === "all" ? "default" : "secondary"}
+            onClick={() => setStatusFilter("all")}
+          >
+            All Visits
+          </Button>
+          <Button 
+            variant={statusFilter === "scheduled" ? "default" : "secondary"}
+            onClick={() => setStatusFilter("scheduled")}
+          >
+            Scheduled
+          </Button>
+          <Button 
+            variant={statusFilter === "in progress" ? "default" : "secondary"}
+            onClick={() => setStatusFilter("in progress")}
+          >
+            In Progress
+          </Button>
+          <Button 
+            variant={statusFilter === "completed" ? "default" : "secondary"}
+            onClick={() => setStatusFilter("completed")}
+          >
+            Completed
+          </Button>
+          <Button 
+            variant={statusFilter === "cancelled" ? "default" : "secondary"}
+            onClick={() => setStatusFilter("cancelled")}
+          >
+            Cancelled
+          </Button>
         </div>
 
-        {/* Visits List */}
-        <div className="space-y-4">
-          {visits.map((visit, index) => {
-            const statusInfo = getStatusInfo(visit.status);
-            const StatusIcon = statusInfo.icon;
-            
-            return (
-              <Card 
-                key={visit.id}
-                hover
-                className="animate-slide-up"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                    {/* Pet Info */}
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center text-2xl">
-                        {visit.petType === "Dog" ? "🐕" : "🐈"}
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : filteredVisits.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No visits found. Schedule your first visit to get started.</p>
+          </div>
+        ) : (
+          /* Visits List */
+          <div className="space-y-4">
+            {filteredVisits.map((visit, index) => {
+              const statusInfo = getStatusInfo(visit.status);
+              const StatusIcon = statusInfo.icon;
+              const visitDate = new Date(visit.visit_date);
+              
+              return (
+                <Card 
+                  key={visit.id}
+                  hover
+                  className="animate-slide-up"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                      {/* Pet Info */}
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center text-2xl">
+                          {visit.pets?.species === "Dog" ? "🐕" : visit.pets?.species === "Cat" ? "🐈" : "🐾"}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
+                            {visit.pets?.name || "Unknown Pet"}
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(visit.reason)}`}>
+                              {visit.reason}
+                            </span>
+                          </h3>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {visit.pets?.owners ? `${visit.pets.owners.first_name} ${visit.pets.owners.last_name}` : "Unknown"}
+                            </span>
+                            {(visit.vet_first_name || visit.vet_last_name) && (
+                              <span className="flex items-center gap-1">
+                                <Stethoscope className="w-3 h-3" />
+                                Dr. {visit.vet_first_name} {visit.vet_last_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
-                          {visit.pet}
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(visit.type)}`}>
-                            {visit.type}
-                          </span>
-                        </h3>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {visit.owner}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Stethoscope className="w-3 h-3" />
-                            {visit.vet}
-                          </span>
+
+                      {/* Date & Time */}
+                      <div className="flex items-center gap-6">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Date</p>
+                          <p className="font-semibold text-foreground">{format(visitDate, "MMM d, yyyy")}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Time</p>
+                          <p className="font-semibold text-foreground">{format(visitDate, "h:mm a")}</p>
+                        </div>
+                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${statusInfo.color}`}>
+                          <StatusIcon className="w-4 h-4" />
+                          <span className="font-medium capitalize">{visit.status}</span>
                         </div>
                       </div>
                     </div>
-
-                    {/* Date & Time */}
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">Date</p>
-                        <p className="font-semibold text-foreground">{visit.date}</p>
+                    
+                    {/* Notes */}
+                    {visit.notes && (
+                      <div className="mt-4 pt-4 border-t border-border/50">
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">Notes: </span>
+                          {visit.notes}
+                        </p>
                       </div>
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">Time</p>
-                        <p className="font-semibold text-foreground">{visit.time}</p>
-                      </div>
-                      <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${statusInfo.color}`}>
-                        <StatusIcon className="w-4 h-4" />
-                        <span className="font-medium">{visit.status}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Notes */}
-                  <div className="mt-4 pt-4 border-t border-border/50">
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">Notes: </span>
-                      {visit.notes}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </Layout>
   );
