@@ -61,13 +61,13 @@ const Index = () => {
               
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-foreground leading-tight">
                 Welcome to{" "}
-                <span className="text-gradient">HappyPaws</span>
+                <span className="text-gradient">PetCare Pro</span>
                 <br />
-                Pet Clinic
+                Veterinary Clinic
               </h1>
               
               <p className="text-lg text-muted-foreground max-w-xl">
-                Your trusted partner in pet healthcare. We provide comprehensive 
+                Your trusted partner in pet healthcare. PetCare Pro provides comprehensive 
                 veterinary services with love and expertise for your furry family members.
               </p>
               
@@ -191,6 +191,8 @@ const Index = () => {
                 Ready to Get Started?
               </h2>
               <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
+                Join thousands of pet owners who trust PetCare Pro for their 
+                pet's healthcare needs.
                 Join thousands of pet owners who trust HappyPaws for their 
                 pet's healthcare needs.
               </p>
@@ -213,10 +215,10 @@ const Index = () => {
               <div className="w-8 h-8 rounded-lg gradient-hero flex items-center justify-center">
                 <PawPrint className="w-4 h-4 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground">HappyPaws</span>
+              <span className="font-bold text-foreground">PetCare Pro</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 HappyPaws Pet Clinic. Built with love for pets.
+              © 2024 PetCare Pro. Built with love for pets.
             </p>
           </div>
         </div>
