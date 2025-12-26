@@ -221,6 +221,18 @@ const Auth = () => {
                 )}
               </div>
 
+              {/* Forgot Password Link */}
+              {isLogin && (
+                <div className="text-right">
+                  <Link 
+                    to="/forgot-password" 
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
+
               {/* Submit Button */}
               <Button 
                 type="submit" 
