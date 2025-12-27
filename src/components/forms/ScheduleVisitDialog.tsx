@@ -149,7 +149,7 @@ export function ScheduleVisitDialog({ onSuccess, triggerLabel = "Schedule Visit"
       
       const { error } = await supabase.from("visits").insert({
         pet_id: data.pet_id,
-        doctor_id: data.doctor_id && data.doctor_id.length > 0 ? data.doctor_id : null,
+        doctor_id: data.doctor_id && data.doctor_id !== "none" ? data.doctor_id : null,
         visit_date: visitDateTime,
         reason: data.reason,
         notes: data.notes || null,
@@ -220,6 +220,7 @@ export function ScheduleVisitDialog({ onSuccess, triggerLabel = "Schedule Visit"
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
                       {vets.map((vet) => (
                         <SelectItem key={vet.id} value={vet.id}>
                           Dr. {vet.first_name} {vet.last_name} - {vet.specialty}
