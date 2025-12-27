@@ -149,7 +149,7 @@ export function ScheduleVisitDialog({ onSuccess, triggerLabel = "Schedule Visit"
       
       const { error } = await supabase.from("visits").insert({
         pet_id: data.pet_id,
-        doctor_id: data.doctor_id || null,
+        doctor_id: data.doctor_id && data.doctor_id.length > 0 ? data.doctor_id : null,
         visit_date: visitDateTime,
         reason: data.reason,
         notes: data.notes || null,
