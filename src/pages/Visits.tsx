@@ -10,11 +10,25 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScheduleVisitDialog } from "@/components/forms/ScheduleVisitDialog";
+import { EditVisitDialog } from "@/components/forms/EditVisitDialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Visit {
   id: string;
@@ -24,6 +38,7 @@ interface Visit {
   notes: string | null;
   diagnosis: string | null;
   treatment: string | null;
+  doctor_id?: string;
   pets: {
     name: string;
     species: string;
@@ -60,6 +75,8 @@ const Visits = () => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
+  const [deletingVisitId, setDeletingVisitId] = useState<string | null>(null);
 
   const fetchVisits = async () => {
     setIsLoading(true);
@@ -125,6 +142,25 @@ const Visits = () => {
       setVisits(visitsWithVets);
     }
     setIsLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingVisitId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("visits")
+        .delete()
+        .eq("id", deletingVisitId);
+
+      if (error) throw error;
+
+      toast.success("Visit deleted successfully");
+      setDeletingVisitId(null);
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete visit");
+    }
   };
 
   useEffect(() => {
@@ -255,6 +291,26 @@ const Visits = () => {
                           <StatusIcon className="w-4 h-4" />
                           <span className="font-medium capitalize">{visit.status}</span>
                         </div>
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingVisit(visit)}
+                            className="h-9 w-9"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeletingVisitId(visit.id)}
+                            className="h-9 w-9 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     
@@ -274,6 +330,34 @@ const Visits = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      {editingVisit && (
+        <EditVisitDialog
+          visit={editingVisit}
+          open={!!editingVisit}
+          onOpenChange={(open) => !open && setEditingVisit(null)}
+          onSuccess={fetchVisits}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingVisitId} onOpenChange={(open) => !open && setDeletingVisitId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Visit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this visit? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
