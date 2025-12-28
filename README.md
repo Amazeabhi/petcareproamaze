@@ -2,9 +2,8 @@
 
 PetCarePro is a web-based **Pet Clinic Management System** designed to help veterinary clinics manage pets, owners, veterinarians, appointments, and medical records efficiently.
 
----
-
 [![Launch PetCare Pro](https://img.shields.io/badge/LAUNCH-PETCARE%20PRO-brightgreen?style=for-the-badge)](https://petcareproamaze.lovable.app)
+
 
 
 ---
