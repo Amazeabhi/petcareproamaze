@@ -64,11 +64,7 @@ PetCarePro/
 - 🔔 Email/SMS appointment reminders  
 - 📱 Mobile-friendly version  
 
----
 
-## 👨‍💻 Author
-
-**Amazing Abhi**
 
 ---
 
