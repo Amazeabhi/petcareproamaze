@@ -20,7 +20,7 @@ It supports multiple animal types and is suitable for real-world clinic use, aca
 - 🐶 Pet registration and management  
 - 👤 Pet owner information management  
 - 🩺 Veterinarian details and availability  
-- 📅 Appointment scheduling  
+- 📅 Appointment scheduling  .
 - 📄 Medical records tracking  
 - 🌐 Web-based application  
 
